@@ -105,7 +105,8 @@ def LIG(EID=None, MR=None, SrcIP=None, MaxReq=3, TimeOut=1, Output=None, Pcap=No
 
     #SONG Qipeng : KQueue/kevent is I/O mechanism under FreeBSD(including Mac OSX), and POLL is for Linux
     #SONG Qipeng : we consider the portability problem.
-
+    KSockQ = None
+    epoll = None
     if hasattr(select, "kqueue"):
         # if select module contains attribute "kqueue", we could infer that the current OS is BSD(including Mac OS )
         # we need to use kqueue/kevent
