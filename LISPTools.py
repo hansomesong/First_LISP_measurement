@@ -103,8 +103,8 @@ def LIG(EID=None, MR=None, SrcIP=None, MaxReq=3, TimeOut=1, Output=None, Pcap=No
         return 'Receiving Socket Error: ' + str(err)
 
 
-    #SONG Qipeng : KQueue/kevent is I/O mechanism under FreeBSD(including Mac OSX), and POLL is for Linux
-    #SONG Qipeng : we consider the portability problem.
+    #KQueue/kevent is I/O mechanism under FreeBSD(including Mac OSX), and POLL is for Linux
+    #we consider the portability problem.
     KSockQ = None
     epoll = None
     if hasattr(select, "kqueue"):
