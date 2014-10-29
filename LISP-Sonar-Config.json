@@ -1,0 +1,27 @@
+
+{
+
+"DirsConfig":
+    {
+        "LogRootDirectory":"$CURRENTDIR/SonarOutput/",
+        "MRListDirectory":"$CURRENTDIR",
+        "MRListFile":"MR-Current-List.txt",
+        "EIDListDirectory":"$CURRENTDIR",
+        "EIDListFile":"EID-Current-List.txt"
+    },
+
+"ThreadSpawn":
+    {
+        "MaxThreads":1,
+        "TimeGap":0.02,
+        "Randomization":0.005
+    },
+    
+"Lig":
+    {
+        "TimeOut":5,
+        "MaxTries":3,
+        "SourceAddress":"None"
+    }
+
+}
