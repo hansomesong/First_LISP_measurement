@@ -239,7 +239,7 @@ print '\tQuery Source Address \t: ' + str(LIGSrcIP)
 threads = []
 threadID = 1
 
-resource.setrlimit(resource.RLIMIT_NOFILE, (SpawnMaxThreads*4+256, resource.RLIMIT_NOFILE[1]))
+resource.setrlimit(resource.RLIMIT_NOFILE,(SpawnMaxThreads*4+256, resource.getrlimit(resource.RLIMIT_NOFILE[1])))
 
 PulseRequestQueue = Queue.Queue(SpawnMaxThreads)
 
