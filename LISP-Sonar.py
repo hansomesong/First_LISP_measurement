@@ -57,7 +57,7 @@ ConfigFile = '{0}LISP-Sonar-Config.json'.format(CURRENTDIR)
 # Logs Directory & Files Verification
 #
 def BootstrapFilesCheck(TimeStamp):
-    
+
     #Check if the root log directory exists, if not create it.
     itexists = os.path.isdir(LogRootDirectory)
     if itexists == False :
@@ -94,20 +94,20 @@ def BootstrapFilesCheck(TimeStamp):
 # Read a list from file shuffle the order and return it
 #
 def LoadList(FILE):
-    
+
     try:
         F = open( FILE, "r" )
     except IOError:
         print '=====> Critical Error:' + FILE + ' Not Found!!!'
         sys.exit(ERR)
-    
+
     LLIST = F.read().split('\n')
     F.close()
-    
+
     if LLIST.count('') > 0:
         #If closing empty line exists remove it
         LLIST.remove('')
-    
+
     # Randomize List so to not follow the same order at each experiment
     random.shuffle(LLIST)
     return LLIST
@@ -124,7 +124,7 @@ class SonarThread (threading.Thread):
         self.threadID = threadID
         self.name = tname
         self.prqueue = prqueue
-    
+
 
     def run(self):
 
@@ -239,7 +239,7 @@ print '\tQuery Source Address \t: ' + str(LIGSrcIP)
 threads = []
 threadID = 1
 
-resource.setrlimit(resource.RLIMIT_NOFILE,(SpawnMaxThreads*4+256, resource.getrlimit(resource.RLIMIT_NOFILE[1])))
+resource.setrlimit(resource.RLIMIT_NOFILE,(SpawnMaxThreads*4+256, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
 
 PulseRequestQueue = Queue.Queue(SpawnMaxThreads)
 
@@ -248,7 +248,7 @@ for t in range(SpawnMaxThreads):
     # Create the pool of threads
     tName = 'Sonar Thread ' + `threadID`
     thread = SonarThread(threadID, tName, PulseRequestQueue)
-    
+
     thread.start()
     threads.append(thread)
     threadID += 1
@@ -257,13 +257,13 @@ print '\tThreads [Now Working]\t: ' + str(SpawnMaxThreads) + ' [' + str(SpawnTim
 
 
 
-    
-    
+
+
 for EID in EIDList:
 
-        
+
     for MR in MRList:
-    
+
         # Validate Addresses
         try:
             EIDIP = ipaddress.ip_address(EID)
@@ -281,7 +281,7 @@ for EID in EIDList:
 
         # Put Metadata for Pulse Request in the queue only if
         # LIGSrcIP and MR are in the same family.
-        
+
         if (LIGSrcIP and (LIGSrcIP.version != MRIP.version)):
             continue
 
