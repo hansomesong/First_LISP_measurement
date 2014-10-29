@@ -105,177 +105,120 @@ def LIG(EID=None, MR=None, SrcIP=None, MaxReq=3, TimeOut=1, Output=None, Pcap=No
 
     #SONG Qipeng : KQueue/kevent is I/O mechanism under FreeBSD(including Mac OSX), and POLL is for Linux
     #SONG Qipeng : we consider the portability problem.
+
     if hasattr(select, "kqueue"):
+        # if select module contains attribute "kqueue", we could infer that the current OS is BSD(including Mac OS )
+        # we need to use kqueue/kevent
         KSockQ = select.kqueue()
         KSockEvent = select.kevent(r.fileno(), filter=select.KQ_FILTER_READ, \
                                    flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE | select.KQ_EV_ONESHOT)
 
-        SentMapRequests = []
+    elif hasattr(select, "epoll"):
+        # Similarly, if select contains "epoll", current OS is Linux, we use Linux's polling mechanism
+        epoll = select.epoll()
+        epoll.register(r.fileno(), select.EPOLLIN)
 
-        while (len(SentMapRequests) <= MaxReq):
+    else:
+        r.close()
+        s.close()
+        return 'This Python script supports only Linux or BSD(including Mac OS), we could not recognize your OS type'
 
-            # Build the map request
-            nonce = ''.join([chr(random.choice(xrange(256))) for i in range(8)])
-            MapRequest = MapRequestMessage(False,
-                                           False,
-                                           False,
-                                           False,
-                                           False,
-                                           nonce,
-                                           SrcIP,
-                                           [SrcIP],
-                                           [EID],
-                                           None)
 
-            # Build UDP Encap
-            UDPpkt = UDPMessage(SrcPort, LISPCONTROLPORT, 0, MapRequest)
-            UDPpkt.checksum = UDPpkt.calculate_checksum(SrcIP, MR)
+    SentMapRequests = []
 
-            #Build IP Encap
-            if (MRSockAF == socket.AF_INET):
-                ECMPayload = IPv4Packet(ttl=64,
-                                        protocol = UDPpkt.header_type,
-                                        source = SrcIP,
-                                        destination = MR,
-                                        payload = UDPpkt)
+    while (len(SentMapRequests) <= MaxReq):
 
-            elif (MRSockAF == socket.AF_INET6):
-                ECMPayload = IPv6Packet(next_header = UDPpkt.header_type,
-                                        hop_limit = 64,
-                                        source = SrcIP,
-                                        destination = MR,
-                                        payload=UDPpkt)
+        # Build the map request
+        nonce = ''.join([chr(random.choice(xrange(256))) for i in range(8)])
+        MapRequest = MapRequestMessage(False,
+                                       False,
+                                       False,
+                                       False,
+                                       False,
+                                       nonce,
+                                       SrcIP,
+                                       [SrcIP],
+                                       [EID],
+                                       None)
 
-            else:
-                return 'Error: AF not recognized!'
+        # Build UDP Encap
+        UDPpkt = UDPMessage(SrcPort, LISPCONTROLPORT, 0, MapRequest)
+        UDPpkt.checksum = UDPpkt.calculate_checksum(SrcIP, MR)
 
-            # Build LISP Encapsulated Control Message
-            ECM = EncapsulatedControlMessage(False,
-                                             False,
-                                             False,
-                                             False,
-                                             ECMPayload)
+        #Build IP Encap
+        if (MRSockAF == socket.AF_INET):
+            ECMPayload = IPv4Packet(ttl=64,
+                                    protocol = UDPpkt.header_type,
+                                    source = SrcIP,
+                                    destination = MR,
+                                    payload = UDPpkt)
 
-            #print 'ECM = \t\t' + bytes(ECM).encode('hex')
+        elif (MRSockAF == socket.AF_INET6):
+            ECMPayload = IPv6Packet(next_header = UDPpkt.header_type,
+                                    hop_limit = 64,
+                                    source = SrcIP,
+                                    destination = MR,
+                                    payload=UDPpkt)
 
-            try:
-                print 'Sending MapRequest ' + str(len(SentMapRequests)) + ' for ' + str(EID) + ' to ' + str(MR)
-                s.sendto(bytes(ECM), MRSockAddr)
-                SentMapRequests.append((nonce, time.time()))
+        else:
+            return 'Error: AF not recognized!'
 
-            except socket.error as err:
+        # Build LISP Encapsulated Control Message
+        ECM = EncapsulatedControlMessage(False,
+                                         False,
+                                         False,
+                                         False,
+                                         ECMPayload)
+
+        #print 'ECM = \t\t' + bytes(ECM).encode('hex')
+
+        try:
+            print 'Sending MapRequest ' + str(len(SentMapRequests)) + ' for ' + str(EID) + ' to ' + str(MR)
+            s.sendto(bytes(ECM), MRSockAddr)
+            SentMapRequests.append((nonce, time.time()))
+
+        except socket.error as err:
+            if KSockQ:
                 KSockQ.close()
-                r.close()
-                s.close()
-                return 'Sending Map-Request Socket Error [' + str(socket.error) +']'
+            elif epoll:
+                epoll.unregister(r.fileno())
+                epoll.close()
+            r.close()
+            s.close()
+            return 'Sending Map-Request Socket Error [' + str(socket.error) + ']'
 
-            try:
+        try:
+            if KSockQ:
                 ReadEvents = KSockQ.control([KSockEvent], 1, TimeOut)
                 if ReadEvents:
                     print 'Received Something .... !!!!!'
                     MapReply = r.recv(4096, socket.MSG_WAITALL)
-
                 else:
                     print 'Received NOTHING .... !!!!!'
-
-            except socket.error as err:
-                KSockQ.close()
-                r.close()
-                s.close()
-                return 'Receiving Map-Reply Socket Error: ' + str(err)
-        KSockQ.close()
-
-
-    elif hasattr(select, "epoll"):
-        # The case when code runs under Linux environment
-        epoll = select.epoll()
-        epoll.register(r.fileno(), select.EPOLLIN)
-
-        SentMapRequests = []
-
-        while (len(SentMapRequests) <= MaxReq):
-
-            # Build the map request
-            nonce = ''.join([chr(random.choice(xrange(256))) for i in range(8)])
-            MapRequest = MapRequestMessage(False,
-                                           False,
-                                           False,
-                                           False,
-                                           False,
-                                           nonce,
-                                           SrcIP,
-                                           [SrcIP],
-                                           [EID],
-                                           None)
-
-            # Build UDP Encap
-            UDPpkt = UDPMessage(SrcPort, LISPCONTROLPORT, 0, MapRequest)
-            UDPpkt.checksum = UDPpkt.calculate_checksum(SrcIP, MR)
-
-            #Build IP Encap
-            if (MRSockAF == socket.AF_INET):
-                ECMPayload = IPv4Packet(ttl=64,
-                                        protocol = UDPpkt.header_type,
-                                        source = SrcIP,
-                                        destination = MR,
-                                        payload = UDPpkt)
-
-            elif (MRSockAF == socket.AF_INET6):
-                ECMPayload = IPv6Packet(next_header = UDPpkt.header_type,
-                                        hop_limit = 64,
-                                        source = SrcIP,
-                                        destination = MR,
-                                        payload=UDPpkt)
-
-            else:
-                return 'Error: AF not recognized!'
-
-            # Build LISP Encapsulated Control Message
-            ECM = EncapsulatedControlMessage(False,
-                                             False,
-                                             False,
-                                             False,
-                                             ECMPayload)
-
-            #print 'ECM = \t\t' + bytes(ECM).encode('hex')
-
-            try:
-                print 'Sending MapRequest ' + str(len(SentMapRequests)) + ' for ' + str(EID) + ' to ' + str(MR)
-                s.sendto(bytes(ECM), MRSockAddr)
-                SentMapRequests.append((nonce, time.time()))
-
-            except socket.error as err:
-                epoll.unregister(r.fileno())
-                epoll.close()
-                r.close()
-                s.close()
-                return 'Sending Map-Request Socket Error [' + str(socket.error) +']'
-
-            try:
-                #ReadEvents = KSockQ.control([KSockEvent], 1, TimeOut)
+            elif epoll:
                 ReadEvents = epoll.poll(TimeOut)
                 if ReadEvents:
                     print 'Received Something .... !!!!!'
                     MapReply = r.recv(4096, socket.MSG_WAITALL)
-
                 else:
                     print 'Received NOTHING .... !!!!!'
 
-            except socket.error as err:
+        except socket.error as err:
+            if KSockQ:
+                KSockQ.close()
+            elif epoll:
                 epoll.unregister(r.fileno())
                 epoll.close()
-                r.close()
-                s.close()
-                return 'Receiving Map-Reply Socket Error: ' + str(err)
+            r.close()
+            s.close()
+            return 'Receiving Map-Reply Socket Error: ' + str(err)
+    if KSockQ:
+        KSockQ.close()
+    elif epoll:
         epoll.unregister(r.fileno())
         epoll.close()
-
-
-
 #==============================================
     # Now decapsulate and find nonce
-
-
     r.close()
     s.close()
 
